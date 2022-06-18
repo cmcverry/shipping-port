@@ -9,20 +9,14 @@ from jose import jwt
 from authlib.integrations.flask_client import OAuth
 
 
-
 app = Flask(__name__)
 app.secret_key = 'SECRET_KEY'
-
 client = datastore.Client()
 
-BOATS = "boats"
-
-# Update the values of the following 3 variables
+# Auth0 application details
 CLIENT_ID = 'CGaC8Ndu5IyXrPm2Ck548Yb8AMMUIhQm'
 CLIENT_SECRET = 'S3O4Ci_B9iBHO7yr4EuYhdgxLXy0ENCZv1Xpb4jouTl_LYTvaHPNY48Q2m5ktKFg'
 DOMAIN = 'shipping-port.us.auth0.com'
-# For example
-# DOMAIN = 'fall21.us.auth0.com'
 
 ALGORITHMS = ["RS256"]
 
@@ -41,8 +35,8 @@ auth0 = oauth.register(
     server_metadata_url=f'https://' + DOMAIN + '/.well-known/openid-configuration'
 )
 
-# This code is adapted from https://auth0.com/docs/quickstart/backend/python/01-authorization?_ga=2.46956069.349333901.1589042886-466012638.1589042885#create-the-jwt-validation-decorator
 
+# This code is adapted from https://auth0.com/docs/quickstart/backend/python/01-authorization?_ga=2.46956069.349333901.1589042886-466012638.1589042885#create-the-jwt-validation-decorator
 class AuthError(Exception):
     def __init__(self, error, status_code):
         self.error = error
@@ -54,26 +48,6 @@ def handle_auth_error(ex):
     response = jsonify(ex.error)
     response.status_code = ex.status_code
     return response
-
-# Status Codes: 400, 401, 200, 204, 415, 405, 406, 404
-
-error_messages = {
-    401: {"Error":"Missing or invalid JWT"},
-    403: {"Error":"Boat belonds to different user"},
-    400: {"Error" : "The request object is missing at least one of the required attributes"},
-    405: {"Error": "This endpoint does not support the HTTP method"}
-    406: {"Error" : "Only JSON data can be returned in response object"}
-    415: {"Error" : "Only JSON data can be accepted in request object"}
-    404: {"Error" : "No resource found with the supplied id"}
-}
-
-# def create_res(int code, msg):
-#     if not msg:
-#         if code == 204:
-
-
-    else:
-
 
 
 # Verify the JWT in the request's Authorization header
@@ -132,13 +106,40 @@ def verify_jwt(request):
                             "description":
                                 "Unable to parse authentication"
                                 " token."}, 401)
-
         return payload
     else:
         raise AuthError({"code": "no_rsa_key",
                             "description":
                                 "No RSA key in JWKS"}, 401)
 
+# bodies for HTTP response objects with error codes
+error_messages = {
+    401: {"Error":"Missing or invalid JWT"},
+    403: {"Error":"Boat belongs to different user or (if onloading) specified load already on boat"},
+    400: {"Error" : "The request object is missing at least one of the required attributes"},
+    405: {"Error": "This endpoint does not support this HTTP method"},
+    406: {"Error" : "Only JSON data can be returned in response object"},
+    415: {"Error" : "Only JSON deata can be accepted in request object"},
+    404: {"Error" : "No resource found with the supplied resource id(s)"}
+}
+
+
+# Generates and returns HTTP response object using Flask's make_response method
+# and the received argument values
+# Receives arguments: integer code, object body 
+# Returns: object res
+def create_res(code, body):
+    if not body:
+        if code == 204:
+            res = make_response()
+        else:
+            res = make_response(json.dumps(error_messages[code]))
+            res.mimetype = 'application/json'
+    elif body:
+        res = make_response(body)
+        res.mimetype = 'application/json'
+    res.status_code = code
+    return res
 
 
 @app.route('/users', methods=['GET'])
@@ -148,10 +149,7 @@ def get_users():
     if request.method == 'GET':
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         query = client.query(kind="users")
@@ -165,17 +163,12 @@ def get_users():
             e["collection_count"] = str(counter) + ' of ' + str(count)
             counter += 1
         output = {"users": results}
-        res = make_response(json.dumps(output))
-        res.mimetype = 'application/json'
-        res.status_code = 200
+        res = create_res(200, output)
         return res
 
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'GET'
-        res.status_code = 405
         return res
 
 
@@ -190,36 +183,24 @@ def boats_post_get():
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res
         
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content or "type" not in content or "length" not in content:
-            err_msg = {"Error" : "The request object is missing at least one of the required attributes"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
-        new_boat = datastore.entity.Entity(key=client.key(BOATS))
+        new_boat = datastore.entity.Entity(key=client.key("boats"))
         new_boat.update({"name": content["name"], "type": content["type"],
           "length": content["length"], "user": payload["sub"], "loads": []})
         client.put(new_boat)
@@ -232,9 +213,7 @@ def boats_post_get():
 
         new_boat["self"] = request.host_url + "boats/" + str(new_boat.key.id)
         new_boat["id"] = new_boat.key.id
-        res = make_response(json.dumps(new_boat))
-        res.mimetype = 'application/json'
-        res.status_code = 201
+        res = create_res(201, new_boat)
         return res
 
     # Returns all boats linked to a user if Authorization header contains valid JWT
@@ -243,17 +222,11 @@ def boats_post_get():
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         query = client.query(kind="boats")
@@ -281,17 +254,12 @@ def boats_post_get():
         output = {"boats": results}
         if next_url:
             output["next"] = next_url
-        res = make_response(json.dumps(output))
-        res.mimetype = 'application/json'
-        res.status_code = 200
+        res = create_res(200, output)
         return res
 
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
-        res.headers['Access-Control-Allow-Methods'] = 'POST, GET'
-        res.status_code = 405
+        res = create_res(405, None)
+        res.headers['Access-Control-Allow-Methods'] = 'GET, POST'
         return res
 
 
@@ -303,17 +271,11 @@ def boats_get_put_patch_delete(id):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         boat_key = client.key("boats", int(id))
@@ -321,10 +283,7 @@ def boats_get_put_patch_delete(id):
         
         if boat:
             if  boat["user"] != payload["sub"]:
-                err_msg = {"Error":"boat owned by different user"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
+                res = create_res(403, None)
                 return res
 
             else:
@@ -332,16 +291,11 @@ def boats_get_put_patch_delete(id):
                 boat["self"] = request.host_url + "boats/" + str(boat.key.id)
                 for i in boat["loads"]:
                     i["self"] = request.host_url + "loads/" + str(i["id"])
-                res = make_response(json.dumps(boat))
-                res.mimetype = 'application/json'
-                res.status_code = 200
+                res = create_res(200, boat)
                 return res
         
         else:
-            err_msg = {"Error":"boat does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Deletes a boat with specified boat id if Authorization header contains valid JWT
@@ -349,10 +303,7 @@ def boats_get_put_patch_delete(id):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         boat_key = client.key("boats", int(id))
@@ -360,10 +311,7 @@ def boats_get_put_patch_delete(id):
 
         if boat:
             if  boat["user"] != payload["sub"]:
-                err_msg = {"Error":"boat owned by different user"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
+                res = create_res(403, None)
                 return res
                 
             else:
@@ -384,15 +332,11 @@ def boats_get_put_patch_delete(id):
                         break
                 client.put(results[0])
 
-                res = make_response()
-                res.status_code = 204
+                res = create_res(204, None)
                 return res
         
         else:
-            err_msg = {"Error":"boat does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Edits and returns boat with specified boat id if Authorization header contains valid JWT
@@ -400,33 +344,21 @@ def boats_get_put_patch_delete(id):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res    
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content or "type" not in content or "length" not in content:
-            errMsg = {"Error" : "The request object is missing at least one of the required attributes"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         boat_key = client.key("boats", int(id))
@@ -434,10 +366,7 @@ def boats_get_put_patch_delete(id):
 
         if boat:
             if  boat["user"] != payload["sub"]:
-                err_msg = {"Error":"boat owned by different user"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
+                res = create_res(403, None)
                 return res
             else:
                 boat.update({"name": content["name"], 
@@ -448,15 +377,10 @@ def boats_get_put_patch_delete(id):
                 boat["id"] = boat.key.id
                 for i in boat["loads"]:
                     i["self"] = request.host_url + "loads/" + str(i["id"])
-                res = make_response(boat)
-                res.mimetype = 'application/json'
-                res.status_code = 200
+                res = create_res(200, boat)
                 return res
         else:
-            err_msg = {"Error":"boat does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Edits and returns boat with specified boat id if Authorization header contains valid JWT
@@ -464,33 +388,21 @@ def boats_get_put_patch_delete(id):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res    
 
         elif 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content and "type" not in content and "length" not in content:
-            errMsg = {"Error" : "The request object does not contain at least one of the required attributes"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         boat_key = client.key("boats", int(id))
@@ -498,10 +410,7 @@ def boats_get_put_patch_delete(id):
 
         if boat:
             if  boat["user"] != payload["sub"]:
-                err_msg = {"Error":"boat owned by different user"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
+                res = create_res(403, None)
                 return res
             else:  
                 if "name" in content:
@@ -515,23 +424,15 @@ def boats_get_put_patch_delete(id):
                 boat["id"] = boat.key.id
                 for i in boat["loads"]:
                     i["self"] = request.host_url + "loads/" + str(i["id"])
-                res = make_response(boat)
-                res.mimetype = 'application/json'
-                res.status_code = 200
+                res = create_res(200, boat)
                 return res
         else:
-            err_msg = {"Error":"boat does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'GET, PUT, PATCH, DELETE'
-        res.status_code = 405
         return res
 
 
@@ -542,26 +443,17 @@ def loads_post_get():
     if request.method == 'POST':
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res
         
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content or "quantity" not in content or "weight" not in content:
-            err_msg = {"Error" : "The request object is missing at least one of the required attributes"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         new_load = datastore.entity.Entity(key=client.key("loads"))
@@ -571,8 +463,7 @@ def loads_post_get():
 
         new_load["self"] = request.host_url + "loads/" + str(new_load.key.id)
         new_load["id"] = new_load.key.id
-        res = make_response(json.dumps(new_load))
-        res.mimetype = 'application/json'
+        res = create_res(201, new_load)
         res.status_code = 201
         return res
 
@@ -580,10 +471,7 @@ def loads_post_get():
     elif request.method == 'GET':
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         query = client.query(kind="loads")
@@ -610,14 +498,12 @@ def loads_post_get():
         output = {"loads": results}
         if next_url:
             output["next"] = next_url
-        return (json.dumps(output), 200)
+        res = create_res(200, output)
+        return res
 
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'POST, GET'
-        res.status_code = 405
         return res
 
 @app.route('/loads/<id>', methods=['DELETE', 'GET', 'PATCH', 'PUT'])
@@ -627,10 +513,7 @@ def loads_get_put_patch_delete(id):
     if request.method == 'GET':
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         load_key = client.key("loads", int(id))
@@ -641,16 +524,11 @@ def loads_get_put_patch_delete(id):
             load["self"] = request.host_url + "loads/" + str(load.key.id)
             if load["carrier"]:
                 load["carrier"]["self"] = request.host_url + "boats/" + str(load["carrier"]["id"])
-            res = make_response(json.dumps(load))
-            res.mimetype = 'application/json'
-            res.status_code = 200
+            res = create_res(200, load)
             return res
         
         else:
-            err_msg = {"Error":"load does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Deletes load with specified id
@@ -671,41 +549,28 @@ def loads_get_put_patch_delete(id):
                         break
 
             client.delete(load_key)
-            res = make_response()
-            res.status_code = 204
+            res = create_res(204, None)
             return res
         
         else:
-            err_msg = {"Error":"load does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Edits and returns load with specified id
     elif request.method == 'PUT':
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res    
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content or "quantity" not in content or "weight" not in content:
-            errMsg = {"Error" : "The request object is missing at least one of the required attributes"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         load_key = client.key("loads", int(id))
@@ -720,41 +585,28 @@ def loads_get_put_patch_delete(id):
             load["id"] = load.key.id
             if load["carrier"]:
                 load["carrier"]["self"] = request.host_url + "boats/" + str(load["carrier"]["id"])
-            res = make_response(load)
-            res.mimetype = 'application/json'
-            res.status_code = 200
+            res = create_res(200, load)
             return res
+
         else:
-            err_msg = {"Error":"load does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
     # Edits and returns boat with specified id
     elif request.method == 'PATCH':
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res    
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "name" not in content and "quantity" not in content and "weight" not in content:
-            errMsg = {"Error" : "The request object does not contain at least one of the required attributes"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         load_key = client.key("loads", int(id))
@@ -772,23 +624,15 @@ def loads_get_put_patch_delete(id):
             load["id"] = load.key.id
             if load["carrier"]:
                 load["carrier"]["self"] = request.host_url + "boats/" + str(load["carrier"]["id"])
-            res = make_response(load)
-            res.mimetype = 'application/json'
-            res.status_code = 200
+            res = create_res(200, load)
             return res
         else:
-            err_msg = {"Error":"load does not exist"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
             
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'GET, PUT, PATCH, DELETE'
-        res.status_code = 405
         return res
 
 
@@ -802,10 +646,7 @@ def add_delete_load(bid,lid):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         boat_key = client.key("boats", int(bid))
@@ -814,25 +655,16 @@ def add_delete_load(bid,lid):
         load = client.get(key=load_key)
 
         if not boat or not load:
-            errMsg = {"Error" : "The specified boat and/or load does not exist"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
         if  boat["user"] != payload["sub"]:
-                err_msg = {"Error":"boat owned by different user"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
-                return res
+            res = create_res(403, None)
+            return res
 
         if load["carrier"]:
-                err_msg = {"Error":"The load is already loaded on a boat"}
-                res = make_response(json.dumps(err_msg))
-                res.mimetype = 'application/json'
-                res.status_code = 403
-                return res
+            res = create_res(403, None)
+            return res
 
         load_details = {"id" : load.id}
         boat_details = {"id" : boat.id}
@@ -840,9 +672,7 @@ def add_delete_load(bid,lid):
         load["carrier"] = boat_details
         client.put(boat)
         client.put(load)
-        res = make_response()
-        res.mimetype = 'application/json'
-        res.status_code = 204
+        res = create_res(204, None)
         return res
 
     # Remove a Load from a Boat
@@ -850,10 +680,7 @@ def add_delete_load(bid,lid):
         try:
             payload = verify_jwt(request)
         except:
-            err_msg = {"Error":"Missing or invalid JWT"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 401
+            res = create_res(401, None)
             return res
 
         boat_key = client.key("boats", int(bid))
@@ -862,17 +689,11 @@ def add_delete_load(bid,lid):
         load = client.get(key=load_key)
 
         if not boat or not load:
-            errMsg = {"Error" : "The specified boat and/or load does not exist"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 404
+            res = create_res(404, None)
             return res
 
         if  boat["user"] != payload["sub"]:
-            err_msg = {"Error":"boat owned by different user"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 403
+            res = create_res(403, None)
             return res
 
         for e in boat["loads"]:
@@ -881,23 +702,15 @@ def add_delete_load(bid,lid):
                 load["carrier"] = None
                 client.put(load)
                 client.put(boat)
-                res = make_response()
-                res.mimetype = 'application/json'
-                res.status_code = 204
+                res = create_res(204, None)
                 return res
 
-        errMsg = {"Error" : "No boat with this boat_id is loaded with the load with this load_id"}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
-        res.status_code = 404
+        res = create_res(404, None)
         return res
     
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'PUT, DELETE'
-        res.status_code = 405
         return res
 
 
@@ -952,26 +765,17 @@ def login():
     if request.method == 'POST':
 
         if "application/json" not in request.headers.get('Content-Type'):
-            errMsg = {"Error" : "Only JSON data can be accepted in request object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 415
+            res = create_res(415, None)
             return res    
 
         if 'application/json' not in request.accept_mimetypes:
-            errMsg = {"Error" : "Only JSON data can be returned in response object"}
-            res = make_response(json.dumps(errMsg))
-            res.mimetype = 'application/json'
-            res.status_code = 406
+            res = create_res(406, None)
             return res
 
         content = request.get_json()
 
         if "username" not in content or "password" not in content:
-            err_msg = {"Error" : "The request object is missing at least one of the required attributes"}
-            res = make_response(json.dumps(err_msg))
-            res.mimetype = 'application/json'
-            res.status_code = 400
+            res = create_res(400, None)
             return res
 
         username = content["username"]
@@ -984,14 +788,12 @@ def login():
         headers = { 'content-type': 'application/json' }
         url = 'https://' + DOMAIN + '/oauth/token'
         r = requests.post(url, json=body, headers=headers)
-        return r.text, 200, {'Content-Type':'application/json'}
+        res = create_res(200, r.text)
+        return res
     
     else:
-        errMsg = {"Error" : "This endooint does not allow this method "}
-        res = make_response(json.dumps(errMsg))
-        res.mimetype = 'application/json'
+        res = create_res(405, None)
         res.headers['Access-Control-Allow-Methods'] = 'POST'
-        res.status_code = 405
         return res
 
 
