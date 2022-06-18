@@ -2,21 +2,16 @@ from google.cloud import datastore
 from flask import Flask, request, jsonify, make_response, jsonify, redirect, render_template, session, url_for
 import requests
 import json
-
 from six.moves.urllib.request import urlopen
 from jose import jwt
-
 from authlib.integrations.flask_client import OAuth
+from auth0Config import CLIENT_ID, CLIENT_SECRET, DOMAIN
+from secret import secret
 
 
 app = Flask(__name__)
-app.secret_key = 'SECRET_KEY'
+app.secret_key = secret
 client = datastore.Client()
-
-# Auth0 application details
-CLIENT_ID = 'CGaC8Ndu5IyXrPm2Ck548Yb8AMMUIhQm'
-CLIENT_SECRET = 'S3O4Ci_B9iBHO7yr4EuYhdgxLXy0ENCZv1Xpb4jouTl_LYTvaHPNY48Q2m5ktKFg'
-DOMAIN = 'shipping-port.us.auth0.com'
 
 ALGORITHMS = ["RS256"]
 
@@ -729,7 +724,6 @@ def redirect_login():
 @app.route("/callback", methods=["GET", "POST"])
 def callback():
     token = oauth.auth0.authorize_access_token()
-    print(token['userinfo'])
 
     query = client.query(kind="users")
     query.add_filter("user_id", "=", token['userinfo']["sub"])
