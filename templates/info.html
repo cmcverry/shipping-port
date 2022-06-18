@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="static/styles.css">
+    <title>User Info</title>
+</head>
+<body>
+        <h1>User Info</h1>
+        <h3>Name:</h3>
+        <div id="name">{{session.userinfo.name}}</div>
+        <h3>ID:</h3>
+        <div id="user_id">{{session.userinfo.sub}}</div>
+        <h3>JWT:</h3>
+        <div id="jwt">{{session.id_token}}</div>
+
+</body>
+</html>
