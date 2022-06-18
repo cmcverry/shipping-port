@@ -1,4 +1,5 @@
 env
 .gcloudignore
 auth0Config.py
-secret.py
+secret.py 
+*.pyc
