@@ -67,9 +67,9 @@ error_messages = {
     404: {"Error" : "No resource found with the supplied id"}
 }
 
-def create_res(int code, msg):
-    if not msg:
-        if code == 204:
+# def create_res(int code, msg):
+#     if not msg:
+#         if code == 204:
 
 
     else:
