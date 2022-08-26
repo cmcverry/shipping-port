@@ -5,17 +5,21 @@ import json
 from six.moves.urllib.request import urlopen
 from jose import jwt
 from authlib.integrations.flask_client import OAuth
-from auth0Config import CLIENT_ID, CLIENT_SECRET, DOMAIN
 from secret import secret
+import os
 
 
 app = Flask(__name__)
-app.secret_key = secret
+app.secret_key = os.environ['SECRET']
 client = datastore.Client()
 
 ALGORITHMS = ["RS256"]
 
 oauth = OAuth(app)
+
+CLIENT_ID = os.environ['AUTH0_ID']
+CLIENT_SECRET = os.environ['AUTH0_SECRET']
+DOMAIN = 'shipping-port.us.auth0.com'
 
 auth0 = oauth.register(
     'auth0',
@@ -57,6 +61,7 @@ def verify_jwt(request):
     
     jsonurl = urlopen("https://"+ DOMAIN+"/.well-known/jwks.json")
     jwks = json.loads(jsonurl.read())
+
     try:
         unverified_header = jwt.get_unverified_header(token)
     except jwt.JWTError:
@@ -64,11 +69,13 @@ def verify_jwt(request):
                         "description":
                             "Invalid header. "
                             "Use an RS256 signed JWT Access Token"}, 401)
+
     if unverified_header["alg"] == "HS256":
         raise AuthError({"code": "invalid_header",
                         "description":
                             "Invalid header. "
                             "Use an RS256 signed JWT Access Token"}, 401)
+
     rsa_key = {}
     for key in jwks["keys"]:
         if key["kid"] == unverified_header["kid"]:
@@ -79,6 +86,7 @@ def verify_jwt(request):
                 "n": key["n"],
                 "e": key["e"]
             }
+
     if rsa_key:
         try:
             payload = jwt.decode(
@@ -88,6 +96,7 @@ def verify_jwt(request):
                 audience=CLIENT_ID,
                 issuer="https://"+ DOMAIN+"/"
             )
+
         except jwt.ExpiredSignatureError:
             raise AuthError({"code": "token_expired",
                             "description": "token is expired"}, 401)
@@ -102,6 +111,7 @@ def verify_jwt(request):
                                 "Unable to parse authentication"
                                 " token."}, 401)
         return payload
+
     else:
         raise AuthError({"code": "no_rsa_key",
                             "description":
@@ -110,14 +120,13 @@ def verify_jwt(request):
 # bodies for HTTP response objects with error codes
 error_messages = {
     401: {"Error":"Missing or invalid JWT"},
-    403: {"Error":"Boat belongs to different user or (if onloading) specified load already on boat"},
+    403: {"Error":"Boat belongs to different user or (if onloading) specified load already on a boat"},
     400: {"Error" : "The request object is missing at least one of the required attributes"},
     405: {"Error": "This endpoint does not support this HTTP method"},
     406: {"Error" : "Only JSON data can be returned in response object"},
     415: {"Error" : "Only JSON deata can be accepted in request object"},
     404: {"Error" : "No resource found with the supplied resource id(s)"}
 }
-
 
 # Generates and returns HTTP response object using Flask's make_response method
 # and the received argument values
@@ -213,7 +222,6 @@ def boats_post_get():
 
     # Returns all boats linked to a user if Authorization header contains valid JWT
     elif request.method == 'GET':
-
         try:
             payload = verify_jwt(request)
         except:
