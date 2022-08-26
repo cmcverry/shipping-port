@@ -1,6 +1,6 @@
 # Shipping Port
 
-Shipping Port is a REST API that allows users to perform CRUD operations on two related data entities boats and loads. Interaction with the API occurs via HTTP requests made to the app’s various endpoints. A user who has authenticated with the API can freely create their own boats, loads, and perform a couple interactions between the two data entities.  
+Shipping Port is a REST API that allows users to interact wit and manipulate two related data entities boats and loads. Interaction with the API occurs via HTTP requests made to the app’s various endpoints. A user who has authenticated with the API can freely create their own boats, loads, and perform a couple interactions between the two data entities.  
 
 ## Instructions: 
 
