@@ -4,4 +4,6 @@ python-jose
 six
 requests
 authlib
+gunicorn
 protobuf==3.20.*
+

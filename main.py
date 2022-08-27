@@ -5,7 +5,6 @@ import json
 from urllib.parse import urlencode
 from jose import jwt
 from authlib.integrations.flask_client import OAuth
-from secret import secret
 import os
 
 
