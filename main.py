@@ -9,15 +9,16 @@ import os
 
 
 app = Flask(__name__)
-app.secret_key = os.environ['SECRET']
+print(os.environ)
+app.secret_key = os.getenv("SECRET")
 client = datastore.Client()
 
 ALGORITHMS = ["RS256"]
 
 oauth = OAuth(app)
 
-CLIENT_ID = os.environ['AUTH0_ID']
-CLIENT_SECRET = os.environ['AUTH0_SECRET']
+CLIENT_ID = os.getenv("AUTH0_ID")
+CLIENT_SECRET = os.getenv("AUTH0_SECRET")
 DOMAIN = 'shipping-port.us.auth0.com'
 
 auth0 = oauth.register(
