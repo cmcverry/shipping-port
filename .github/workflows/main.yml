@@ -31,7 +31,7 @@ jobs:
       uses: google-github-actions/deploy-appengine@v0.4.0
       with:
         project_id: ${{ secrets.GCP_PROJECT }}
-        credentials: ${{ secrets.GCP_CREDENTIALS }
+        credentials: ${{ secrets.GCP_CREDENTIALS }}
         deliverables: app.yaml
 
 
