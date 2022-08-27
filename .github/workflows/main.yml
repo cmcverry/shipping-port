@@ -20,25 +20,20 @@ jobs:
     name: Deploying to Google Cloud
     runs-on: ubuntu-latest
     env:
-      SECRET: '${{ secrets.APP_SECRET }}'
-      AUTH0_ID: '${{ secrets.AUTH0_CLIENT_ID }}'
-      AUTH0_SECRET: '${{ secrets.AUTH0_CLIENT_SECRET }}'
+      SECRET: ${{ secrets.APP_SECRET }}
+      AUTH0_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+      AUTH0_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
       
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-      
-    - id: 'auth'
-      uses: 'google-github-actions/auth@v0'
+    - name: Google App Engine
+      uses: google-github-actions/deploy-appengine@v0.4.0
       with:
-        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+        project_id: ${{ secrets.GCP_PROJECT }}
+        credentials: ${{ secrets.GCP_CREDENTIALS }
+        deliverables: app.yaml
 
-    - name: 'Deploy to App Engine'
-      uses: 'google-github-actions/deploy-appengine@v0'
-      with:
-        deliverables: 'app.yaml'
-        promote: false
-        version: 'v1'
 
       # Example of using the output
     - id: 'test'
