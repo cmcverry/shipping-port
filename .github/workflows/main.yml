@@ -17,24 +17,26 @@ on:
 jobs:
 
   deploy:
-    name: Deploying to Google Cloud
+    name: Deploying to Google Cloude
     runs-on: ubuntu-latest
-    env:
-      SECRET: ${{ secrets.APP_SECRET }}
-      AUTH0_ID: ${{ secrets.AUTH0_CLIENT_ID }}
-      AUTH0_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
-      
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+
     - name: Checkout
-      uses: actions/checkout@v2
-    - name: Google App Engine
-      uses: google-github-actions/deploy-appengine@v0.4.0
+      uses: actions/checkout@v3
+
+    - name: Deploy to App Engine
+      env:
+        SECRET: ${{ secrets.APP_SECRET }}
+        AUTH0_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+        AUTH0_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+      id: deploy
+      uses: google-github-actions/deploy-appengine@v0.2.0
       with:
+        deliverables: app.yaml
         project_id: ${{ secrets.GCP_PROJECT }}
         credentials: ${{ secrets.GCP_CREDENTIALS }}
-        deliverables: app.yaml
 
-
-      # Example of using the output
-    - id: 'test'
-      run: 'curl "${{ steps.deploy.outputs.url }}"'
+    - name: Test
+      run: curl "${{ steps.deploy.outputs.url }}"
