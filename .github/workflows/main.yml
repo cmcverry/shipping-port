@@ -13,15 +13,17 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+env:
+  SECRET: ${{ secrets.APP_SECRET }}
+  AUTH0_ID: ${{ secrets.AUTH0_CLIENT_ID }}
+  AUTH0_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
 
   deploy:
     name: Deploying to Google Cloud
-    env:
-      SECRET: ${{ secrets.APP_SECRET }}
-      AUTH0_ID: ${{ secrets.AUTH0_CLIENT_ID }}
-      AUTH0_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
+    
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
