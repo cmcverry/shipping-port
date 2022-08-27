@@ -12,13 +12,13 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-  
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
 
   deploy:
     name: Deploying to Google Cloud
-
+    environment: deployment
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
