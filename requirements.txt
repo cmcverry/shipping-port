@@ -4,3 +4,4 @@ python-jose
 six
 requests
 authlib
+protobuf==3.20.*

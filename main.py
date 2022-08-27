@@ -2,7 +2,7 @@ from google.cloud import datastore
 from flask import Flask, request, jsonify, make_response, jsonify, redirect, render_template, session, url_for
 import requests
 import json
-from six.moves.urllib.request import urlopen
+from urllib.parse import urlencode
 from jose import jwt
 from authlib.integrations.flask_client import OAuth
 from auth0Config import CLIENT_ID, CLIENT_SECRET, DOMAIN
@@ -55,7 +55,7 @@ def verify_jwt(request):
                             "description":
                                 "Authorization header is missing"}, 401)
     
-    jsonurl = urlopen("https://"+ DOMAIN+"/.well-known/jwks.json")
+    jsonurl = urlencode("https://"+ DOMAIN+"/.well-known/jwks.json")
     jwks = json.loads(jsonurl.read())
     try:
         unverified_header = jwt.get_unverified_header(token)
