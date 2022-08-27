@@ -1,30 +1,41 @@
-from google.cloud import datastore
+from google.cloud import datastore, secretmanager
 from flask import Flask, request, jsonify, make_response, jsonify, redirect, render_template, session, url_for
 import requests
 import json
 from urllib.parse import urlencode
 from jose import jwt
 from authlib.integrations.flask_client import OAuth
-import os
+
+
+clientSecrets = secretmanager.SecretManagerServiceClient()
+
+resource = f"projects/607558431758/secrets/APP_SECRET/versions/1"
+response = clientSecrets.access_secret_version(request={"name": resource})
+SECRET = response.payload.data.decode("UTF-8")
+
+resource = f"projects/607558431758/secrets/AUTH0_CLIENT_ID/versions/1"
+response = clientSecrets.access_secret_version(request={"name": resource})
+AUTH0_ID = response.payload.data.decode("UTF-8")
+
+resource = f"projects/607558431758/secrets/AUTH0_CLIENT_SECRET/versions/1"
+response = clientSecrets.access_secret_version(request={"name": resource})
+AUTH0_SECRET = response.payload.data.decode("UTF-8")
 
 
 app = Flask(__name__)
-print("Checking Env variables: ", os.getenv("SECRET"), os.getenv("AUTH0_ID"), os.getenv("AUTH)_SECRET"))
-app.secret_key = os.getenv("SECRET")
+app.secret_key = SECRET
 client = datastore.Client()
 
 ALGORITHMS = ["RS256"]
 
 oauth = OAuth(app)
 
-CLIENT_ID = os.getenv("AUTH0_ID")
-CLIENT_SECRET = os.getenv("AUTH0_SECRET")
 DOMAIN = 'shipping-port.us.auth0.com'
 
 auth0 = oauth.register(
     'auth0',
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
+    client_id=AUTH0_ID,
+    client_secret=AUTH0_SECRET,
     api_base_url="https://" + DOMAIN,
     access_token_url="https://" + DOMAIN + "/oauth/token",
     authorize_url="https://" + DOMAIN + "/authorize",
@@ -93,7 +104,7 @@ def verify_jwt(request):
                 token,
                 rsa_key,
                 algorithms=ALGORITHMS,
-                audience=CLIENT_ID,
+                audience=AUTH0_ID,
                 issuer="https://"+ DOMAIN+"/"
             )
 
@@ -784,8 +795,8 @@ def login():
         password = content["password"]
         body = {'grant_type':'password','username':username,
                 'password':password,
-                'client_id':CLIENT_ID,
-                'client_secret':CLIENT_SECRET
+                'client_id':AUTH0_ID,
+                'client_secret':AUTH0_SECRET
                 }
         headers = { 'content-type': 'application/json' }
         url = 'https://' + DOMAIN + '/oauth/token'
