@@ -16,7 +16,6 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
 
-  # This workflow contains a single job called "build"
   deploy:
     name: Deploying to Google Cloud
     runs-on: ubuntu-latest
@@ -24,20 +23,20 @@ jobs:
       SECRET: '${{ secrets.APP_SECRET }}'
       AUTH0_ID: '${{ secrets.AUTH0_CLIENT_ID }}'
       AUTH0_SECRET: '${{ secrets.AUTH0_CLIENT_SECRET }}'
-    
-    permissions:
-      contents: 'read'
-      id-token: 'write'
-
+      
     steps:
     - id: 'auth'
       uses: 'google-github-actions/auth@v0'
       with:
         credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
 
-    - id: 'deploy'
+    - name: 'Deploy to App Engine'
       uses: 'google-github-actions/deploy-appengine@v0'
+      with:
+        deliverables: 'app.yaml'
+        promote: false
+        version: 'v1'
 
-    # Example of using the output
+      # Example of using the output
     - id: 'test'
       run: 'curl "${{ steps.deploy.outputs.url }}"'
