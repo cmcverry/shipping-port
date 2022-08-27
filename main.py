@@ -2,7 +2,7 @@ from google.cloud import datastore, secretmanager
 from flask import Flask, request, jsonify, make_response, jsonify, redirect, render_template, session, url_for
 import requests
 import json
-from urllib.parse import urlencode
+from urllib.request import urlopen
 from jose import jwt
 from authlib.integrations.flask_client import OAuth
 
@@ -70,7 +70,7 @@ def verify_jwt(request):
                             "description":
                                 "Authorization header is missing"}, 401)
     
-    jsonurl = urlencode("https://"+ DOMAIN+"/.well-known/jwks.json")
+    jsonurl = urlopen("https://"+ DOMAIN+"/.well-known/jwks.json")
     jwks = json.loads(jsonurl.read())
 
     try:
