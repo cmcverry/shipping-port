@@ -9,7 +9,7 @@ import os
 
 
 app = Flask(__name__)
-# print(os.environ)
+print(os.environ)
 app.secret_key = os.getenv("SECRET")
 client = datastore.Client()
 
