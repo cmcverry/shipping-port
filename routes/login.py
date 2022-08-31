@@ -6,7 +6,9 @@ from credentials.secrets import AUTH0_ID, AUTH0_SECRET, DOMAIN
 
 login = Blueprint("login", __name__)
 
-# Generate a JWT from the Auth0 domain and return it
+# Generate a JWT from the Auth0 domain and return it. This only works for users 
+# who authenticated using an Auth0 account
+#
 # Request: JSON body with 2 properties "username" and "password"
 #          of a user registered with this project's Auth0 domain
 # Response: JSON body with a JWT set as the value of the property id_token
@@ -30,7 +32,8 @@ def login_user():
 
         username = content["username"]
         password = content["password"]
-        body = {'grant_type':'password','username':username,
+        body = {'grant_type':'password',
+                'username':username,
                 'password':password,
                 'client_id':AUTH0_ID,
                 'client_secret':AUTH0_SECRET
